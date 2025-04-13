@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # ADB Remote - WiFi üzerinden Android uygulama yönetimi
-# Yazan: Sbyil, 2025
+# Yazan: sbyildirim, 2025
 
 import os
 import subprocess
