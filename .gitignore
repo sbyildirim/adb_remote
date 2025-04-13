@@ -1,0 +1,45 @@
+# Python dosyaları
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Sanal ortam
+venv/
+ENV/
+env/
+
+# IDE dosyaları
+.idea/
+.vscode/
+*.swp
+*.swo
+.project
+.pydevproject
+.settings/
+
+# Sistem dosyaları
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Uygulama özel
+*.log
+.env
+config.ini

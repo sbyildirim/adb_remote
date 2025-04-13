@@ -1,0 +1,11 @@
+# ADB Remote için gerekli Python paketleri
+# Sbyil tarafından oluşturuldu, 2025
+
+# Şu an için standart kütüphaneler dışında
+# özel bir paket gerekmiyor. tkinter zaten
+# Python ile birlikte geliyor.
+
+# Gelecekte eklenebilecek bağımlılıklar:
+# - requests>=2.28.0  # API istekleri için
+# - pillow>=9.0.0     # Görüntü işleme için
+# - pyperclip>=1.8.0  # Panoya kopyalama için
