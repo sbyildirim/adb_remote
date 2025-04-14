@@ -13,18 +13,17 @@ Bu uygulama ile:
 
 ##  Kurulum
 
-Uygulamayı kullanmak için birkaç şey gerekiyor:
+Uygulamayı kullanmak için sadece Python gerekiyor:
 
 1. **Python**: Bilgisayarınızda Python 3.6 veya daha yeni bir sürüm olmalı
-2. **ADB**: Android Debug Bridge aracı yüklü olmalı
-   - Windows için: [Android SDK Platform Tools](https://developer.android.com/studio/releases/platform-tools)'u indirin ve PATH'e ekleyin
-   - Mac için: Terminal'de `brew install android-platform-tools` komutunu çalıştırın
-   - Linux için: `sudo apt install adb` komutunu çalıştırın
 
-Sonra:
+**ADB Otomatik Kurulum**: Uygulama ilk çalıştırıldığında ADB (Android Debug Bridge) yüklü değilse, otomatik olarak indirip kuracaktır. Manuel olarak ADB kurmanıza gerek yoktur!
+
+Kurulum adımları:
 1. Bu projeyi bilgisayarınıza indirin
 2. Komut satırında proje klasörüne gidin
 3. `python adb_remote.py` komutuyla uygulamayı başlatın
+4. İlk çalıştırmada ADB otomatik olarak indirilip kurulacaktır
 
 ##  Kullanım:
 
@@ -43,6 +42,11 @@ Sonra:
    - Kaldırmak istediğiniz uygulamaya çift tıklayın veya sağ tıklayıp "Uygulamayı Kaldır"ı seçin
    - Arama kutusunu kullanarak uygulamaları filtreleyebilirsiniz
    - "Sistem Uygulamalarını Göster" seçeneğini işaretleyerek sistem uygulamalarını da görebilirsiniz
+
+4. ADB Durumunu Kontrol Etme:
+   - "ADB Durumunu Kontrol Et" düğmesine tıklayarak ADB'nin durumunu görebilirsiniz
+   - Bu özellik, ADB'nin doğru şekilde kurulup kurulmadığını kontrol etmenizi sağlar
+   - ADB sürümü, yolu ve platform-tools klasörü hakkında bilgi verir
 
 Not: Sistem uygulamalarını kaldırmak cihazınıza zarar verebilir. Sadece bildiğiniz uygulamaları kaldırın.
 

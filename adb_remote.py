@@ -9,6 +9,12 @@ import re
 import time
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
+import sys
+import platform
+import urllib.request
+import zipfile
+import shutil
+import tempfile
 
 class ADBRemote:
     def __init__(self):
@@ -16,20 +22,92 @@ class ADBRemote:
         self.device_ip = None
         self.connected = False
         self.device_name = None
+        self.adb_path = None
     
     def check_adb_installed(self):
         # ADB komutunun çalışıp çalışmadığını kontrol et
         try:
             # ADB sürümünü sorgula
-            subprocess.run(["adb", "version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            result = subprocess.run(["adb", "version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True)
+            # ADB yüklü ve PATH'te
             return True
         except (subprocess.SubprocessError, FileNotFoundError):
+            # Uygulama klasöründe ADB var mı kontrol et
+            local_adb_path = self.get_local_adb_path()
+            if local_adb_path and os.path.exists(local_adb_path):
+                self.adb_path = local_adb_path
+                return True
             # Hata alındıysa ADB yüklü değil demektir
             return False
     
+    def get_local_adb_path(self):
+        """Yerel ADB yolunu döndürür"""
+        # Çalışan uygulamanın dizini
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # İşletim sistemine göre ADB yolu
+        if platform.system() == "Windows":
+            adb_path = os.path.join(app_dir, "platform-tools", "adb.exe")
+        else:  # Linux ve macOS
+            adb_path = os.path.join(app_dir, "platform-tools", "adb")
+        
+        return adb_path if os.path.exists(adb_path) else None
+    
+    def download_and_install_adb(self):
+        """ADB'yi indirir ve kurar"""
+        try:
+            # Kullanıcıya bilgi ver
+            print("ADB indiriliyor ve kuruluyor...")
+            
+            # İşletim sistemini belirle
+            system = platform.system()
+            
+            # İndirme URL'si
+            if system == "Windows":
+                url = "https://dl.google.com/android/repository/platform-tools-latest-windows.zip"
+            elif system == "Darwin":  # macOS
+                url = "https://dl.google.com/android/repository/platform-tools-latest-darwin.zip"
+            elif system == "Linux":
+                url = "https://dl.google.com/android/repository/platform-tools-latest-linux.zip"
+            else:
+                return False, f"Desteklenmeyen işletim sistemi: {system}"
+            
+            # Geçici dizin oluştur
+            temp_dir = tempfile.mkdtemp()
+            zip_path = os.path.join(temp_dir, "platform-tools.zip")
+            
+            # Dosyayı indir
+            print(f"Platform Tools indiriliyor: {url}")
+            urllib.request.urlretrieve(url, zip_path)
+            
+            # Çalışan uygulamanın dizini
+            app_dir = os.path.dirname(os.path.abspath(__file__))
+            
+            # ZIP dosyasını aç
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall(app_dir)
+            
+            # Yerel ADB yolunu ayarla
+            self.adb_path = self.get_local_adb_path()
+            
+            # Çalıştırma izni ver (Linux/macOS)
+            if system != "Windows" and self.adb_path:
+                os.chmod(self.adb_path, 0o755)
+            
+            # Geçici dosyaları temizle
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            
+            return True, "ADB başarıyla kuruldu."
+        except Exception as e:
+            return False, f"ADB kurulumu sırasında hata: {str(e)}"
+    
     def get_connected_devices(self):
         # Şu anda ADB'ye bağlı tüm cihazları listele
-        result = subprocess.run(["adb", "devices"], stdout=subprocess.PIPE, text=True)
+        adb_cmd = ["adb"]
+        if self.adb_path:
+            adb_cmd = [self.adb_path]
+            
+        result = subprocess.run(adb_cmd + ["devices"], stdout=subprocess.PIPE, text=True)
         # Çıktıyı satırlara böl ve ilk satırı atla (başlık satırı)
         lines = result.stdout.strip().split('\n')[1:]
         devices = []
@@ -51,15 +129,20 @@ class ADBRemote:
         if not ip:
             return False, "IP adresi belirtilmedi."
         
+        # ADB komutunu belirle
+        adb_cmd = ["adb"]
+        if self.adb_path:
+            adb_cmd = [self.adb_path]
+        
         # Temiz bir başlangıç için ADB sunucusunu yeniden başlat
         # Bazen eski bağlantılar sorun çıkarabiliyor
-        subprocess.run(["adb", "kill-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(adb_cmd + ["kill-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         time.sleep(0.5)  # Sunucunun kapanması için kısa bir bekleme
-        subprocess.run(["adb", "start-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        subprocess.run(adb_cmd + ["start-server"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         
         # Cihaza bağlanmayı dene
         full_ip = f"{ip}:{port}"
-        result = subprocess.run(["adb", "connect", full_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+        result = subprocess.run(adb_cmd + ["connect", full_ip], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
         
         # Bağlantı başarılı mı kontrol et
         if "connected" in result.stdout.lower():
@@ -70,11 +153,11 @@ class ADBRemote:
             # Cihaz bilgilerini almaya çalış
             try:
                 # Cihaz modelini al
-                model_cmd = ["adb", "-s", full_ip, "shell", "getprop", "ro.product.model"]
+                model_cmd = adb_cmd + ["-s", full_ip, "shell", "getprop", "ro.product.model"]
                 model = subprocess.run(model_cmd, stdout=subprocess.PIPE, text=True).stdout.strip()
                 
                 # Üretici bilgisini al
-                manuf_cmd = ["adb", "-s", full_ip, "shell", "getprop", "ro.product.manufacturer"]
+                manuf_cmd = adb_cmd + ["-s", full_ip, "shell", "getprop", "ro.product.manufacturer"]
                 manufacturer = subprocess.run(manuf_cmd, stdout=subprocess.PIPE, text=True).stdout.strip()
                 
                 # Cihaz adını oluştur
@@ -92,8 +175,13 @@ class ADBRemote:
     def disconnect_device(self):
         # Bağlı cihaz varsa bağlantıyı kes
         if self.device_ip:
+            # ADB komutunu belirle
+            adb_cmd = ["adb"]
+            if self.adb_path:
+                adb_cmd = [self.adb_path]
+                
             # ADB disconnect komutunu çalıştır
-            subprocess.run(["adb", "disconnect", self.device_ip], 
+            subprocess.run(adb_cmd + ["disconnect", self.device_ip], 
                           stdout=subprocess.PIPE, stderr=subprocess.PIPE)
             
             # Bağlantı bilgilerini temizle
@@ -111,13 +199,18 @@ class ADBRemote:
             return False, "Bağlı cihaz yok."
         
         try:
+            # ADB komutunu belirle
+            adb_cmd = ["adb"]
+            if self.adb_path:
+                adb_cmd = [self.adb_path]
+                
             # Hangi uygulamaları listeleyeceğimizi belirle
             if system_apps:
                 # Tüm uygulamaları listele (sistem uygulamaları dahil)
-                cmd = ["adb", "-s", self.device_ip, "shell", "pm", "list", "packages", "-f"]
+                cmd = adb_cmd + ["-s", self.device_ip, "shell", "pm", "list", "packages", "-f"]
             else:
                 # Sadece kullanıcının yüklediği uygulamaları listele
-                cmd = ["adb", "-s", self.device_ip, "shell", "pm", "list", "packages", "-3", "-f"]
+                cmd = adb_cmd + ["-s", self.device_ip, "shell", "pm", "list", "packages", "-3", "-f"]
             
             # Komutu çalıştır
             result = subprocess.run(cmd, stdout=subprocess.PIPE, text=True)
@@ -143,7 +236,7 @@ class ADBRemote:
                     
                     # Uygulama adını almaya çalış
                     # Not: Bu her zaman çalışmayabilir, cihaza bağlı olarak değişebilir
-                    label_cmd = ["adb", "-s", self.device_ip, "shell", "dumpsys", "package", 
+                    label_cmd = adb_cmd + ["-s", self.device_ip, "shell", "dumpsys", "package", 
                                 package_name, "|", "grep", "labelRes"]
                     label_result = subprocess.run(label_cmd, stdout=subprocess.PIPE, 
                                                 stderr=subprocess.PIPE, text=True, shell=True)
@@ -155,7 +248,7 @@ class ADBRemote:
                     if "labelRes" in label_result.stdout:
                         try:
                             # Ana aktiviteyi bulmaya çalış
-                            name_cmd = ["adb", "-s", self.device_ip, "shell", "dumpsys", "package", 
+                            name_cmd = adb_cmd + ["-s", self.device_ip, "shell", "dumpsys", "package", 
                                       package_name, "|", "grep", "android.intent.action.MAIN"]
                             name_result = subprocess.run(name_cmd, stdout=subprocess.PIPE, 
                                                       stderr=subprocess.PIPE, text=True, shell=True)
@@ -184,8 +277,13 @@ class ADBRemote:
             return False, "Bağlı cihaz yok."
         
         try:
+            # ADB komutunu belirle
+            adb_cmd = ["adb"]
+            if self.adb_path:
+                adb_cmd = [self.adb_path]
+                
             # Uygulamayı kaldırma komutunu çalıştır
-            cmd = ["adb", "-s", self.device_ip, "uninstall", package_name]
+            cmd = adb_cmd + ["-s", self.device_ip, "uninstall", package_name]
             result = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
             
             # Sonucu kontrol et
@@ -213,23 +311,130 @@ class ADBRemoteGUI:
         
         # ADB yüklü mü kontrol et
         if not self.adb.check_adb_installed():
-            # Yüklü değilse hata mesajı göster ve uygulamayı kapat
-            messagebox.showerror(
-                "Hata", 
+            # Yüklü değilse otomatik olarak indirip kurmayı öner
+            confirm = messagebox.askyesno(
+                "ADB Kurulumu", 
                 "ADB (Android Debug Bridge) yüklü değil.\n\n"
-                "Lütfen Android SDK Platform Tools'u indirip kurun ve "
-                "PATH değişkenine eklediğinizden emin olun."
+                "Otomatik olarak indirip kurmak ister misiniz?\n"
+                "(Bu işlem birkaç dakika sürebilir)"
             )
-            root.destroy()
-            return
+            
+            if confirm:
+                # Kurulum işlemini başlat
+                self.install_adb()
+            else:
+                # Kullanıcı kurulumu reddetti, uygulamayı kapat
+                messagebox.showerror(
+                    "Hata", 
+                    "ADB olmadan uygulama çalışamaz.\n"
+                    "Uygulama kapatılıyor."
+                )
+                root.destroy()
+                return
         
         # Arayüz elemanlarını oluştur
         self.create_widgets()
+    
+    def install_adb(self):
+        """ADB'yi otomatik olarak indirir ve kurar"""
+        # İlerleme penceresi
+        progress_window = tk.Toplevel(self.root)
+        progress_window.title("ADB Kurulumu")
+        progress_window.geometry("400x150")
+        progress_window.resizable(False, False)
+        progress_window.transient(self.root)  # Ana pencereye bağlı
+        progress_window.grab_set()  # Modal pencere
+        
+        # Pencere içeriği
+        frame = ttk.Frame(progress_window, padding="20")
+        frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Bilgi etiketi
+        info_label = ttk.Label(
+            frame, 
+            text="ADB indiriliyor ve kuruluyor...\nLütfen bekleyin, bu işlem birkaç dakika sürebilir.",
+            justify=tk.CENTER
+        )
+        info_label.pack(pady=10)
+        
+        # İlerleme çubuğu
+        progress = ttk.Progressbar(frame, mode="indeterminate", length=300)
+        progress.pack(pady=10)
+        progress.start()
+        
+        # Pencereyi güncelle
+        self.root.update()
+        
+        # Kurulum işlemini başlat
+        def install_thread():
+            success, message = self.adb.download_and_install_adb()
+            
+            # İlerleme çubuğunu durdur
+            progress.stop()
+            
+            if success:
+                # Başarılı
+                info_label.config(text="ADB başarıyla kuruldu!")
+                # 2 saniye bekle ve pencereyi kapat
+                self.root.after(2000, progress_window.destroy)
+            else:
+                # Başarısız
+                messagebox.showerror("Kurulum Hatası", message)
+                progress_window.destroy()
+                self.root.destroy()  # Ana uygulamayı da kapat
+        
+        # Kurulum işlemini ayrı bir thread'de başlat
+        import threading
+        threading.Thread(target=install_thread, daemon=True).start()
+    
+    def get_adb_version(self):
+        """ADB sürümünü alır"""
+        try:
+            # ADB komutunu belirle
+            adb_cmd = ["adb"]
+            if self.adb.adb_path:
+                adb_cmd = [self.adb.adb_path]
+                
+            # ADB sürümünü sorgula
+            result = subprocess.run(adb_cmd + ["version"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+            
+            # Çıktıyı işle
+            if result.returncode == 0 and result.stdout:
+                # İlk satırı al (sürüm bilgisi)
+                version_line = result.stdout.strip().split('\n')[0]
+                return version_line
+            else:
+                return "Bilinmiyor"
+        except Exception as e:
+            return f"Hata: {str(e)}"
     
     def create_widgets(self):
         # Ana çerçeve - tüm içeriği tutacak
         main_frame = ttk.Frame(self.root, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # ADB sürüm bilgisi
+        adb_info_frame = ttk.Frame(main_frame)
+        adb_info_frame.pack(fill=tk.X, pady=5)
+        
+        # ADB sürümünü göster
+        adb_version = self.get_adb_version()
+        adb_info_text = f"ADB Sürümü: {adb_version}"
+        adb_info_label = ttk.Label(
+            adb_info_frame, 
+            text=adb_info_text,
+            font=("", 9)
+        )
+        adb_info_label.pack(side=tk.LEFT, padx=5)
+        
+        # ADB yolunu göster
+        adb_path_text = f"ADB Yolu: {'Sistem PATH' if not self.adb.adb_path else self.adb.adb_path}"
+        adb_path_label = ttk.Label(
+            adb_info_frame, 
+            text=adb_path_text,
+            font=("", 9)
+        )
+        adb_path_label.pack(side=tk.RIGHT, padx=5)
         
         # ===== BAĞLANTI PANELİ =====
         connection_frame = ttk.LabelFrame(main_frame, text="Cihaz Bağlantısı", padding="10")
@@ -370,6 +575,48 @@ class ADBRemoteGUI:
             command=self.show_help
         )
         help_btn.pack(side=tk.LEFT, padx=5)
+        
+        # ADB Kontrol düğmesi
+        check_adb_btn = ttk.Button(
+            action_frame, 
+            text="ADB Durumunu Kontrol Et", 
+            command=self.check_adb_status
+        )
+        check_adb_btn.pack(side=tk.LEFT, padx=5)
+    
+    def check_adb_status(self):
+        """ADB'nin durumunu kontrol eder ve kullanıcıya gösterir"""
+        # ADB sürümünü al
+        adb_version = self.get_adb_version()
+        
+        # ADB yolunu al
+        adb_path = "Sistem PATH" if not self.adb.adb_path else self.adb.adb_path
+        
+        # Platform-tools klasörünün varlığını kontrol et
+        app_dir = os.path.dirname(os.path.abspath(__file__))
+        platform_tools_dir = os.path.join(app_dir, "platform-tools")
+        platform_tools_exists = os.path.exists(platform_tools_dir)
+        
+        # Dosyaları kontrol et
+        files_in_platform_tools = []
+        if platform_tools_exists:
+            files_in_platform_tools = os.listdir(platform_tools_dir)
+        
+        # Mesajı oluştur
+        message = f"""
+ADB Durum Kontrolü:
+
+ADB Sürümü: {adb_version}
+ADB Yolu: {adb_path}
+
+Platform-tools klasörü: {"Mevcut" if platform_tools_exists else "Bulunamadı"}
+Platform-tools içindeki dosya sayısı: {len(files_in_platform_tools)}
+
+ADB çalışıyor mu? {"Evet" if self.adb.check_adb_installed() else "Hayır"}
+"""
+        
+        # Kullanıcıya göster
+        messagebox.showinfo("ADB Durum Kontrolü", message)
         
         # ===== DURUM ÇUBUĞU =====
         self.statusbar = ttk.Label(

@@ -43,3 +43,7 @@ desktop.ini
 *.log
 .env
 config.ini
+
+# ADB dosyaları
+platform-tools/
+*.zip

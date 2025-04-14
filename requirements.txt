@@ -1,8 +1,22 @@
 # ADB Remote için gerekli Python paketleri
 
-# Şu an için standart kütüphaneler dışında
-# özel bir paket gerekmiyor. tkinter zaten
-# Python ile birlikte geliyor.
+# Standart kütüphaneler (Python ile birlikte gelir)
+# - tkinter: Grafik arayüz için
+# - os: Dosya sistemi işlemleri için
+# - subprocess: ADB komutlarını çalıştırmak için
+# - re: Düzenli ifadeler için
+# - time: Zaman işlemleri için
+# - urllib.request: ADB indirmek için
+# - zipfile: İndirilen ADB dosyasını açmak için
+# - shutil: Dosya kopyalama ve silme işlemleri için
+# - tempfile: Geçici dosya işlemleri için
+# - platform: İşletim sistemi bilgilerini almak için
+# - threading: Kurulum işlemini arka planda çalıştırmak için
 
+# Şu an için standart kütüphaneler dışında
+# özel bir paket gerekmiyor. Tüm gerekli
+# kütüphaneler Python ile birlikte geliyor.
+
+# Otomatik ADB kurulumu için internet bağlantısı gereklidir.
 
 # sbyildirim tarafından oluşturuldu
