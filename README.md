@@ -1,4 +1,4 @@
-# 📱 ADB Remote - WiFi Üzerinden Android Uygulama Yönetimi
+# 📱 ADB Remote - WiFi Üzerinden Android Uygulama Yönetimi (v1.1)
 
 Merhaba! Bu proje, Android telefonunuzdaki uygulamaları WiFi üzerinden kolayca yönetmenizi sağlayan bir araç. Telefonunuzu bilgisayarınıza kablo olmadan bağlayıp, istediğiniz uygulamaları tek tıkla kaldırabilirsiniz.
 
